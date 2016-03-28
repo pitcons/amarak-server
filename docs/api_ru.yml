@@ -1,0 +1,386 @@
+swagger: '2.0'
+info:
+  title: Amarak API
+  description: Документация API для тезауруса.
+  version: "1.0.0"
+# the domain of the service
+host: 127.0.0.1:8000
+# array of all schemes that your API supports
+schemes:
+  - http
+# will be prefixed to all paths
+basePath: /
+produces:
+  - application/json
+paths:
+  /schemes:
+    get:
+      summary: Получение всех доступных схем
+      description: |
+        Данный запрос отдает все доступные схемы, вместе с дополнительной информацией о них.
+      tags:
+        - Работа со схемами
+      responses:
+        200:
+          description: Результат запроса представляет собой словарь, в котором ключ это имя схемы, а значение это словарь с дополнительной информацией.
+          schema:
+            type: object
+            properties:
+              scheme_name:
+                $ref: '#/definitions/Scheme'
+  /schemes/{name}:
+    parameters:
+      - in: path
+        name: name
+        description: Имя схемы
+        required: true
+        type: string
+    put:
+      summary: Обновление данных схемы
+      tags:
+        - Работа со схемами
+      responses:
+        200:
+          description: Результат запроса - пустой словарь.
+          schema:
+            type: object
+    delete:
+      summary: Удаление схемы
+      tags:
+        - Работа со схемами
+      responses:
+        200:
+          description: Результат запроса - пустой словарь.
+          schema:
+            type: object
+  /schemes/{name}/concepts/all:
+    parameters:
+      - in: path
+        name: name
+        description: Имя схемы
+        required: true
+        type: string
+    get:
+      summary: Получения концептов
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Список концептов
+          schema:
+            type: object
+            properties:
+              concepts:
+                $ref: '#/definitions/ConceptShort'
+  /schemes/{name}/concepts/:
+    parameters:
+      - in: path
+        name: name
+        description: Имя схемы
+        required: true
+        type: string
+    get:
+      summary: Получения концептов верхнего уровня для схемы
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Список концептов
+          schema:
+            type: object
+            properties:
+              concepts:
+                $ref: '#/definitions/ConceptShort'
+  /schemes/{name}/parent/{parent-name}:
+    parameters:
+      - in: path
+        name: name
+        description: Имя схемы
+        required: true
+        type: string
+      - in: path
+        name: parent-name
+        description: Имя родительской схемы
+        required: true
+        type: string
+    put:
+      summary: Сделать схему родительской
+      tags:
+        - Работа с наследованием схем
+      responses:
+        200:
+          description: Результат запроса - пустой словарь.
+          schema:
+            type: object
+    delete:
+      summary: Перестать считать схему родительской
+      tags:
+        - Работа с наследованием схем
+      responses:
+        200:
+          description: Результат запроса - пустой словарь.
+          schema:
+            type: object
+  /schemes/{name}/concepts/{concept}:
+    parameters:
+      - in: path
+        name: name
+        description: Имя схемы
+        required: true
+        type: string
+      - in: path
+        name: concept
+        description: URI концепта
+        required: true
+        type: string
+    get:
+      summary: Получение данных концепта
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Данные концепта
+          schema:
+            type: object
+            properties:
+              uri:
+                type: string
+                description: URI концепта.
+              labels:
+                type: object
+                description: Локализованные названия концепта. Представлены в виде словаря, в котором ключ это язык, а значение собственно название схемы.
+              relations:
+                type: array
+                description: Список связей данного концепта с другими.
+                items:
+                  $ref: '#/definitions/ConceptRelation'
+    put:
+      summary: Обновление данных концепта
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Пустой словарь
+          schema:
+            type: object
+    delete:
+      summary: Удаление концепта из схемы
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Пустой словарь
+          schema:
+            type: object
+  /schemes/{name}/concepts/{concept}/label/{lang}/{type}/{label}:
+    parameters:
+      - in: path
+        name: name
+        description: Имя схемы.
+        required: true
+        type: string
+      - in: path
+        name: concept
+        description: URI концепта.
+        required: true
+        type: string
+      - in: path
+        name: lang
+        description: Язык Label.
+        required: true
+        type: string
+      - in: path
+        name: type
+        description: Тип Label.
+        required: true
+        type: string
+      - in: path
+        name: label
+        description: Новое Значение Label
+        required: true
+        type: string
+    delete:
+      summary: Удаление Label концепта.
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Пустой словарь
+          schema:
+            type: object
+    put:
+      summary: Обновление Label концепта.
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Пустой словарь
+          schema:
+            type: object
+  /schemes/{scheme}/add/relation/{relation-scheme}/{relation-uri}/concept1/{scheme1}/{concept1}/concept2/{scheme2}/{concept2}/:
+    parameters:
+      - in: path
+        name: scheme
+        description: Имя схемы, в которую следуюет добавить связь.
+        required: true
+        type: string
+      - in: path
+        name: relation-scheme
+        description: Имя схемы, откуда следует взять связь.
+        required: true
+        type: string
+      - in: path
+        name: relation-uri
+        description: URI - связи.
+        required: true
+        type: string
+      - in: path
+        name: scheme1
+        description: Схема первого концепта.
+        required: true
+        type: string
+      - in: path
+        name: concept1
+        description: URI первого концепта.
+        required: true
+        type: string
+      - in: path
+        name: scheme2
+        description: Схема d концепта.
+        required: true
+        type: string
+      - in: path
+        name: concept2
+        description: URI второго концепта.
+        required: true
+        type: string
+    put:
+      summary: Добавление связи между концептами
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Пустой словарь
+          schema:
+            type: object
+  /link/{link-id}:
+    parameters:
+      - in: path
+        name: link-id
+        description: Идентификатор связи.
+        required: true
+        type: number
+    delete:
+      summary: Удаление связи между концептами
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Пустой словарь
+          schema:
+            type: object
+  /search/{label}:
+    parameters:
+      - in: path
+        name: label
+        description: Label концепта.
+        required: true
+        type: string
+    get:
+      summary: Поиск концепта по Label.
+      tags:
+        - Работа с концептами
+      responses:
+        200:
+          description: Список концептов.
+          schema:
+            type: object
+            properties:
+              concepts:
+                type: array
+                items:
+                  type: object
+definitions:
+  Scheme:
+    type: object
+    properties:
+      uri:
+        type: string
+        description: URI данной схемы
+      name:
+        type: string
+        description: Имя данной схемы. Уникален и используется для внутренних ссылок.
+      concept_label_types:
+        type: object
+        description: Словарь доступных label для концептов. На данный момент для всех схем отдаются одинаковые значения, которые невозможно изменить.
+        properties:
+          prefLabel:
+            type: string
+            description: Preferred label
+          altLabel:
+            type: string
+            description: Alternative label
+          hiddenLabel:
+            type: string
+            description: Hidden label
+      labels:
+        type: object
+        description: Локализованные названия схемы. Представлены в виде словаря, в котором ключ это язык, а значение собственно название схемы.
+        additionalProperties:
+          type: string
+      langs:
+        type: object
+        description: Языки, которые доступны в данной схеме. Представлены в виде словаря, в котором ключ это язык (например "en"), а значение его название (например "English")
+        additionalProperties:
+          type: string
+      parents:
+        type: array
+        description: Имена непосредственных родительских схем для данной схемы.
+        items:
+          type: string
+      relations:
+        type: array
+        description: Перечень допустимых связей между концептами.
+        items:
+          type: object
+          properties:
+            id:
+              type: number
+              description: Идентификатор связи
+            name:
+              type: string
+              description: Название связи
+            scheme:
+              type: string
+              description: Имя схемы, в которой определна связь. Если связь определна в родительсткой схеме, то в данном поле будет её имя.
+  ConceptShort:
+    type: object
+    properties:
+      scheme:
+        type: string
+        description: Имя схемы.
+      uri:
+        type: string
+        description: URI схемы.
+  ConceptRelation:
+    type: object
+    properties:
+      concept1:
+        $ref: '#/definitions/ConceptShort'
+      concept2:
+        $ref: '#/definitions/ConceptShort'
+      link:
+        type: object
+        properties:
+          id:
+            type: number
+            description: Идентификатор связи.
+      relation:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Название связи
+      scheme:
+        type: string
+        description: Имя схемы, которой непосредственно принадлежит данная связь.
