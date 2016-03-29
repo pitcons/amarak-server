@@ -35,6 +35,7 @@ class RestSchemesTestCase(TestDB):
             {
                 'schemes': [
                     {
+                        u'id': 1,
                         u'name': u'example1',
                         u'labels': [],
                         u'ns_prefix': u'example1',
@@ -51,6 +52,7 @@ class RestSchemesTestCase(TestDB):
                         }
                     },
                     {
+                        u'id': 2,
                         u'name': u'example2',
                         u'labels': [],
                         u'ns_prefix': u'example2',

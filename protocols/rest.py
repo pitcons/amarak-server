@@ -63,6 +63,7 @@ def schemes():
     schemes_list = []
     for scheme in schemes:
         schemes_list.append({
+            "id": scheme.id,
             "ns_prefix": scheme.ns_prefix,
             "ns_url": scheme.ns_url,
             "name": scheme.name,
