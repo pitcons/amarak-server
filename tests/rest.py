@@ -35,7 +35,7 @@ class RestSchemesTestCase(TestDB):
             {
                 'schemes': [
                     {
-                        u'id': 1,
+                        u'id': u'example1',
                         u'name': u'example1',
                         u'labels': [],
                         u'ns_prefix': u'example1',
@@ -52,7 +52,7 @@ class RestSchemesTestCase(TestDB):
                         }
                     },
                     {
-                        u'id': 2,
+                        u'id': u'example2',
                         u'name': u'example2',
                         u'labels': [],
                         u'ns_prefix': u'example2',
@@ -103,6 +103,30 @@ class RestConceptsTestCase(TestDB):
         app.config['TESTING'] = True
         self.app = app.test_client()
 
+    def _create_labels(self):
+        scheme = ConceptScheme('example', ('example', 'http://example.com'))
+        self.conn.update(scheme)
+        concept = Concept('concept', scheme=scheme)
+        self.conn.update(concept)
+
+        self.app.put('/schemes/example/concepts/concept/labels/', data={
+            'lang': 'en',
+            'type': 'altLabel',
+            'literal': 'some-label-1'
+        })
+        self.app.put('/schemes/example/concepts/concept/labels/', data={
+            'lang': 'en',
+            'type': 'altLabel',
+            'literal': 'some-label-2'
+        })
+        self.app.put('/schemes/example/concepts/concept/labels/', data={
+            'lang': 'ru',
+            'type': 'altLabel',
+            'literal': 'some-label-3'
+        })
+
+        return scheme, concept
+
     def test_new_concept(self):
         scheme = ConceptScheme('example', ('example', 'http://example.com'))
         self.conn.schemes.update(scheme)
@@ -126,7 +150,6 @@ class RestConceptsTestCase(TestDB):
         self.assertEquals(len(concepts), 1)
         self.assertEquals(concepts[0].name, 'new-name')
 
-
     def test_delete_concept(self):
         scheme = ConceptScheme('example', ('example', 'http://example.com'))
         self.conn.schemes.update(scheme)
@@ -139,39 +162,34 @@ class RestConceptsTestCase(TestDB):
         self.assertEquals(len(concepts), 0)
 
     def test_new_label(self):
-        scheme = ConceptScheme('example', ('example', 'http://example.com'))
-        self.conn.update(scheme)
-        concept = Concept('concept', scheme=scheme)
-        self.conn.update(concept)
-
-        self.app.put('/schemes/example/concepts/concept/label/en/altLabel/some-label-1')
-        self.app.put('/schemes/example/concepts/concept/label/en/altLabel/some-label-2')
-        self.app.put('/schemes/example/concepts/concept/label/ru/altLabel/some-label-3')
+        scheme, concept = self._create_labels()
 
         concept = self.conn.concepts.filter(scheme=scheme)[0]
         self.assertEquals(
             concept.labels.all(),
-            [Label("en", "altLabel", "some-label-1"),
-             Label("en", "altLabel", "some-label-2"),
-             Label("ru", "altLabel", "some-label-3")]
+            [Label("en", "altLabel", "some-label-1", id=1),
+             Label("en", "altLabel", "some-label-2", id=2),
+             Label("ru", "altLabel", "some-label-3", id=3)]
         )
 
-
     def test_get_labels(self):
-        scheme = ConceptScheme('example', ('example', 'http://example.com'))
-        self.conn.update(scheme)
-        concept = Concept('concept', scheme=scheme)
-        self.conn.update(concept)
-
-        self.app.put('/schemes/example/concepts/concept/label/en/altLabel/some-label-1')
-        self.app.put('/schemes/example/concepts/concept/label/en/altLabel/some-label-2')
-        self.app.put('/schemes/example/concepts/concept/label/ru/altLabel/some-label-3')
+        self._create_labels()
 
         self.assertEquals(
             json.loads(self.app.get('/schemes/example/concepts/concept').data)['labels'],
-            [{u'lang': u'en', u'literal': u'some-label-1', u'type': u'altLabel'},
-             {u'lang': u'en', u'literal': u'some-label-2', u'type': u'altLabel'},
-             {u'lang': u'ru', u'literal': u'some-label-3', u'type': u'altLabel'}]
+            [{u'lang': u'en', u'literal': u'some-label-1', u'type': u'altLabel', 'id': 1},
+             {u'lang': u'en', u'literal': u'some-label-2', u'type': u'altLabel', 'id': 2},
+             {u'lang': u'ru', u'literal': u'some-label-3', u'type': u'altLabel', 'id': 3}]
+        )
+
+    def test_delete_labels(self):
+        self._create_labels()
+        self.app.delete('/schemes/example/concepts/concept/labels/1')
+        self.app.delete('/schemes/example/concepts/concept/labels/3')
+
+        self.assertEquals(
+            json.loads(self.app.get('/schemes/example/concepts/concept').data)['labels'],
+            [{u'lang': u'en', u'literal': u'some-label-2', u'type': u'altLabel', 'id': 2}]
         )
 
 

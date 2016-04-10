@@ -41,18 +41,21 @@ def get_data():
     return data or {}
 
 
-@app.route('/schemes', methods=['GET'])
 @app.route('/schemes/', methods=['GET'])
 def schemes():
     conn = get_conn()
-    name = request.args.get('name')
-    if name:
+    scheme_id = request.args.get('id')
+    if scheme_id:
         try:
-            schemes = [conn.schemes.get(name=name)]
+            schemes = [conn.schemes.get(id=scheme_id)]
         except DoesNotExist:
             return jsonify({'schemes': []})
     else:
         schemes = conn.schemes.all()
+
+    name = request.args.get('name')
+    if name:
+        schemes = schemes.filter(name=name)
 
     if request.args.get('offset') is not None:
         schemes = schemes.offset(request.args['offset'])
@@ -67,9 +70,9 @@ def schemes():
             "ns_prefix": scheme.ns_prefix,
             "ns_url": scheme.ns_url,
             "name": scheme.name,
-            "labels": [],
+            "labels": scheme.labels.to_python(),
             "parents": [
-                parent.name
+                parent.id
                 for parent in scheme.parents.all()
             ],
             "concept_label_types": {
@@ -85,8 +88,8 @@ def schemes():
     return jsonify({'schemes': schemes_list})
 
 
-@app.route('/schemes/<string:name>', methods=['PUT'])
-def scheme_put(name):
+@app.route('/schemes/<string:scheme_id>', methods=['PUT'])
+def scheme_put(scheme_id):
     conn = get_conn()
 
     # ns_url = request.args.get('ns_url')
@@ -96,34 +99,41 @@ def scheme_put(name):
     # if not ns_url:
     #     ns_url = CONFIG.get('common', 'default_namespace')
 
-    scheme = conn.schemes.get_or_create(name=name)
+    scheme = conn.schemes.get_or_create(id=scheme_id)
     data = get_data()
 
-    for key in ('name', 'ns_prefix', 'ns_url'):
+    for key in ('id', 'name', 'ns_prefix', 'ns_url'):
         if key in data:
             setattr(scheme, key, data[key])
 
     if 'parents' in data:
         scheme.parents.clear()
-        for parent_name in data['parents']:
-            scheme.parents.add(conn.schemes.get(name=parent_name))
+        for parent_id in data['parents']:
+            scheme.parents.add(conn.schemes.get(id=parent_id))
+
+    if 'labels' in data:
+        print data['labels']
+        # TODO implement
+        scheme.labels.clear()
+        for label in data['labels']:
+            scheme.labels.add(label['lang'], label['type'], label['literal'])
 
     conn.schemes.update(scheme)
     return jsonify({})
 
 
-@app.route('/schemes/<string:name>', methods=['DELETE'])
-def scheme_delete(name):
+@app.route('/schemes/<string:scheme_id>', methods=['DELETE'])
+def scheme_delete(scheme_id):
     conn = get_conn()
-    scheme = conn.schemes.get(name=name)
+    scheme = conn.schemes.get(id=scheme_id)
     conn.schemes.delete(scheme)
     return jsonify({})
 
 
-@app.route('/schemes/<string:scheme_name>/concepts/', methods=['GET'])
-def scheme_concepts(scheme_name):
+@app.route('/schemes/<string:scheme_id>/concepts/', methods=['GET'])
+def scheme_concepts(scheme_id):
     conn = get_conn()
-    scheme = conn.schemes.get(name=scheme_name)
+    scheme = conn.schemes.get(id=scheme_id)
     concepts = conn.concepts.filter(scheme=scheme)
     return jsonify({
         'concepts': [
@@ -134,10 +144,10 @@ def scheme_concepts(scheme_name):
     #return jsonify({'concepts': store.top_concepts(prefix)})
 
 
-@app.route('/schemes/<string:scheme_name>/concepts/top', methods=['GET'])
-def scheme_top_concepts(scheme_name):
+@app.route('/schemes/<string:scheme_id>/concepts/top', methods=['GET'])
+def scheme_top_concepts(scheme_id):
     conn = get_conn()
-    scheme = conn.schemes.get(name=scheme_name)
+    scheme = conn.schemes.get(id=scheme_id)
     concepts = conn.concepts.filter(scheme=scheme)
     return jsonify({
         'concepts': [
@@ -160,20 +170,20 @@ def scheme_rm_parent(prefix, parent_prefix):
     return jsonify({})
 
 
-@app.route('/schemes/<string:scheme_name>/concepts/<string:concept_name>', methods=['DELETE'])
-def scheme_concept_delete(scheme_name, concept_name):
+@app.route('/schemes/<string:scheme_id>/concepts/<string:concept_name>', methods=['DELETE'])
+def scheme_concept_delete(scheme_id, concept_name):
     conn = get_conn()
-    scheme = conn.schemes.get(name=scheme_name)
+    scheme = conn.schemes.get(id=scheme_id)
     concept = conn.concepts.get(name=concept_name, scheme=scheme)
     conn.concepts.delete(concept)
     return jsonify({})
 
 
-@app.route('/schemes/<string:scheme_name>/concepts/<string:concept_name>', methods=['PUT'])
-def scheme_concept_put(scheme_name, concept_name):
+@app.route('/schemes/<string:scheme_id>/concepts/<string:concept_name>', methods=['PUT'])
+def scheme_concept_put(scheme_id, concept_name):
 
     conn = get_conn()
-    scheme = conn.schemes.get(name=scheme_name)
+    scheme = conn.schemes.get(id=scheme_id)
     concept = conn.concepts.get_or_create(name=concept_name, scheme=scheme)
 
     data = get_data()
@@ -190,10 +200,10 @@ def scheme_concept_put(scheme_name, concept_name):
     return jsonify({})
 
 
-@app.route('/schemes/<string:scheme_name>/concepts/<string:concept_name>', methods=['GET'])
-def scheme_concept(scheme_name, concept_name):
+@app.route('/schemes/<string:scheme_id>/concepts/<string:concept_name>', methods=['GET'])
+def scheme_concept(scheme_id, concept_name):
     conn = get_conn()
-    scheme = conn.schemes.get(name=scheme_name)
+    scheme = conn.schemes.get(id=scheme_id)
     concept = conn.concepts.get(name=concept_name, scheme=scheme)
 
     return jsonify({
@@ -202,46 +212,41 @@ def scheme_concept(scheme_name, concept_name):
         'labels': concept.labels.to_python()
     })
 
-    # return jsonify({
-    #     'name': concept,
-    #     'relations': store.concept_relations(scheme, concept),
-    #     'labels': store.concept_labels(
-    #         scheme,
-    #         concept,
-    #         flat=request.args.get('flat_labels', 'true').lower()=='true'
-    #     )
-    # })
 
-
-@app.route('/schemes/<string:scheme_name>/concepts/<string:concept_name>/label/<string:lang>/<string:label_type>/<string:label>', methods=['PUT'])
-def scheme_concept_label(scheme_name, concept_name, lang, label_type, label):
+@app.route('/schemes/<string:scheme_id>/concepts/<string:concept_name>/labels/', methods=['PUT'])
+def scheme_concept_label(scheme_id, concept_name):
     conn = get_conn()
-    scheme = conn.schemes.get(name=scheme_name)
+    data = get_data()
+    scheme = conn.schemes.get(id=scheme_id)
     concept = conn.concepts.get_or_create(name=concept_name, scheme=scheme)
-    concept.labels.add(lang, label_type, label)
+    concept.labels.add(data['lang'], data['type'], data['literal'])
     conn.concepts.update(concept)
-    # store.add_concept_label(scheme, concept, lang, type, label)
     return jsonify({})
 
 
-@app.route('/schemes/<string:scheme>/concepts/<string:concept>/label/<string:lang>/<string:type>/<string:label>', methods=['DELETE'])
-def rm_scheme_concept_label(scheme, concept, lang, type, label):
-    store.rm_concept_label(scheme, concept, lang, type, label)
+@app.route('/schemes/<string:scheme_id>/concepts/<string:concept_name>/labels/<string:label_id>', methods=['DELETE'])
+def rm_scheme_concept_label(scheme_id, concept_name, label_id):
+    conn = get_conn()
+    data = get_data()
+    scheme = conn.schemes.get(id=scheme_id)
+    concept = conn.concepts.get_or_create(name=concept_name, scheme=scheme)
+    concept.labels.remove_by_id(label_id)
+    conn.concepts.update(concept)
     return jsonify({})
 
 
 
-@app.route('/schemes/<string:scheme>'
+@app.route('/schemes/<string:scheme_id>'
            '/add/relation/<string:relscheme>/<string:relname>'
            '/concept1/<string:scheme1>/<string:concept1>'
            '/concept2/<string:scheme2>/<string:concept2>', methods=['PUT'])
-def scheme_add_relation(scheme, relscheme, relname,
+def scheme_add_relation(scheme_id, relscheme, relname,
                         scheme1, concept1, scheme2, concept2):
-    store.concept_add_link(scheme, relscheme, relname,
+    store.concept_add_link(scheme_id, relscheme, relname,
                            scheme1, concept1, scheme2, concept2)
     for r1, r2 in SYMMETRIC.items():
         if relname == r1:
-            store.concept_add_link(scheme, relscheme, r2,
+            store.concept_add_link(scheme_id, relscheme, r2,
                                    scheme2, concept2, scheme1, concept1)
 
     return jsonify({})
