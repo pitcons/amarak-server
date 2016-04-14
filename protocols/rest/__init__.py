@@ -27,6 +27,7 @@ def get_conn():
 
 
 from schemes import *
+from relations import *
 
 SYMMETRIC = {
     u'ВЫШЕ': u'НИЖЕ',

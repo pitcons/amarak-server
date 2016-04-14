@@ -1,6 +1,7 @@
 # encoding: utf-8
 from flask import jsonify, request, g
 from protocols.rest import get_conn, get_data
+from amarak.models.relation import Relation
 from app import app
 
 
@@ -38,6 +39,7 @@ def schemes():
                 parent.id
                 for parent in scheme.parents.all()
             ],
+            "relations": scheme.relations.to_python(),
             "concept_label_types": {
                 'prefLabel': 'Preferred label',
                 'altLabel': 'Alternative label',
@@ -73,6 +75,12 @@ def scheme_put(scheme_id):
         scheme.parents.clear()
         for parent_id in data['parents']:
             scheme.parents.add(conn.schemes.get(id=parent_id))
+
+    if 'relations' in data:
+        scheme.relations.clear()
+        for relation in data['relations']:
+            if relation['scheme'] == scheme.id:
+                scheme.relations.add(Relation(scheme, relation['name']))
 
     if 'labels' in data:
         print data['labels']
